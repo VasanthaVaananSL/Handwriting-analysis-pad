@@ -1,0 +1,73 @@
+#include <WiFiS3.h>         // For Arduino UNO R4 WiFi
+#include <Wire.h>
+#include <MPU6050.h>
+#include "ThingSpeak.h"
+
+// WiFi & ThingSpeak setup
+char ssid[] = "YOUR_WIFI_NAME";          // your WiFi name
+char pass[] = "YOUR_WIFI_PASSWORD";      // your WiFi password
+unsigned long myChannelNumber = YOUR_CHANNEL_NUMBER;  // ThingSpeak channel number
+const char *myWriteAPIKey = "YOUR_API_KEY";           // ThingSpeak write API key
+
+WiFiClient client;
+MPU6050 mpu;
+
+const int pressurePin = A0;  // FSR402 connected to analog pin A0
+
+void setup() {
+  Serial.begin(9600);
+  Wire.begin();
+  WiFi.begin(ssid, pass);
+  ThingSpeak.begin(client);
+  mpu.initialize();
+
+  // Wait for WiFi connection
+  while (WiFi.status() != WL_CONNECTED) {
+    Serial.print(".");
+    delay(500);
+  }
+  Serial.println("\nWiFi connected!");
+}
+
+void loop() {
+  // Read pressure sensor value
+  int pressureValue = analogRead(pressurePin);
+
+  // Read motion data from MPU6050
+  int16_t ax, ay, az, gx, gy, gz;
+  mpu.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
+
+  // Print values to Serial Monitor
+  Serial.print("Pressure: ");
+  Serial.print(pressureValue);
+  Serial.print(" | Accel X: ");
+  Serial.print(ax);
+  Serial.print(" | Y: ");
+  Serial.print(ay);
+  Serial.print(" | Z: ");
+  Serial.print(az);
+  Serial.print(" | Gyro X: ");
+  Serial.print(gx);
+  Serial.print(" | Y: ");
+  Serial.print(gy);
+  Serial.print(" | Z: ");
+  Serial.println(gz);
+
+  // Send data to ThingSpeak
+  ThingSpeak.setField(1, pressureValue);
+  ThingSpeak.setField(2, ax);
+  ThingSpeak.setField(3, ay);
+  ThingSpeak.setField(4, az);
+  ThingSpeak.setField(5, gx);
+  ThingSpeak.setField(6, gy);
+  ThingSpeak.setField(7, gz);
+
+  int x = ThingSpeak.writeFields(myChannelNumber, myWriteAPIKey);
+  if (x == 200) {
+    Serial.println("Data sent to ThingSpeak successfully!");
+  } else {
+    Serial.println("Failed to send data. Try again...");
+  }
+
+  delay(15000); // ThingSpeak requires at least 15 sec delay between uploads
+}
